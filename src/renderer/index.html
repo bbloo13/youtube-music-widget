@@ -10,6 +10,9 @@
     <div class="widget__header">
       <span class="widget__title">YouTube Music</span>
       <div class="widget__headerBtns">
+        <button class="widget__iconBtn" id="refreshBtn" title="새로고침">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </button>
         <button class="widget__iconBtn" id="pinBtn" title="항상 위에 고정">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
         </button>
@@ -41,15 +44,18 @@
         <div class="player__progress" id="progressBar"><div class="player__progressFill" id="progressFill"></div></div>
       </div>
       <div class="player__controls">
-        <button class="player__ctrlBtn" id="prevBtn" title="이전">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg>
-        </button>
-        <button class="player__ctrlBtn player__ctrlBtn--play" id="playBtn" title="재생/일시정지">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M8 5v14l11-7z"></path></svg>
-        </button>
-        <button class="player__ctrlBtn" id="nextBtn" title="다음">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-9.5 6L15 18V6z"></path></svg>
-        </button>
+        <div class="player__controlsRow">
+          <button class="player__ctrlBtn" id="prevBtn" title="이전">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg>
+          </button>
+          <button class="player__ctrlBtn player__ctrlBtn--play" id="playBtn" title="재생/일시정지">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M8 5v14l11-7z"></path></svg>
+          </button>
+          <button class="player__ctrlBtn" id="nextBtn" title="다음">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-9.5 6L15 18V6z"></path></svg>
+          </button>
+        </div>
+        <input type="range" class="volumeSlider" id="volumeSlider" min="0" max="100" value="100" title="볼륨" />
       </div>
     </div>
   </div>

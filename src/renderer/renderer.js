@@ -3,6 +3,7 @@ const listEl = document.getElementById('list');
 const navEl = document.getElementById('nav');
 const navLabelEl = document.getElementById('navLabel');
 const backBtn = document.getElementById('backBtn');
+const refreshBtn = document.getElementById('refreshBtn');
 const pinBtn = document.getElementById('pinBtn');
 const minimizeBtn = document.getElementById('minimizeBtn');
 const closeBtn = document.getElementById('closeBtn');
@@ -18,6 +19,7 @@ const playBtn = document.getElementById('playBtn');
 const playIcon = document.getElementById('playIcon');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
+const volumeSlider = document.getElementById('volumeSlider');
 
 const PLAY_ICON = '<path d="M8 5v14l11-7z"></path>';
 const PAUSE_ICON = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"></path>';
@@ -27,6 +29,7 @@ let currentQueue = [];
 let currentIndex = -1;
 let isShuffleRepeat = false;
 let currentView = 'library';
+let currentPlaylistItem = null;
 
 function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -144,6 +147,7 @@ async function openPlaylist(item) {
   try {
     const playlist = await window.api.getPlaylist(item.id);
     currentView = 'playlist';
+    currentPlaylistItem = item;
     currentQueue = playlist.tracks;
     isShuffleRepeat = false;
     renderTracks();
@@ -252,7 +256,29 @@ progressBar.addEventListener('click', (e) => {
   audio.currentTime = ratio * audio.duration;
 });
 
+function updateVolumeFill(value) {
+  volumeSlider.style.background = `linear-gradient(to right, #7fb5ff ${value}%, rgba(255,255,255,0.12) ${value}%)`;
+}
+
+volumeSlider.addEventListener('input', () => {
+  audio.volume = Number(volumeSlider.value) / 100;
+  updateVolumeFill(volumeSlider.value);
+});
+
+updateVolumeFill(volumeSlider.value);
+
 backBtn.addEventListener('click', () => loadLibrary(false));
+
+refreshBtn.addEventListener('click', () => {
+  refreshBtn.classList.add('is-spinning');
+  setTimeout(() => refreshBtn.classList.remove('is-spinning'), 400);
+
+  if (currentView === 'playlist' && currentPlaylistItem) {
+    openPlaylist(currentPlaylistItem);
+  } else {
+    loadLibrary(true);
+  }
+});
 
 closeBtn.addEventListener('click', () => window.api.hideWindow());
 

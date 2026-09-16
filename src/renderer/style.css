@@ -47,20 +47,6 @@ html, body {
 .widget.is-mini .player {
   padding-top: 0;
   border-top: none;
-  gap: 6px;
-}
-
-.widget.is-mini .player__thumb {
-  width: 26px;
-  height: 26px;
-}
-
-.widget.is-mini .player__controls {
-  gap: 0;
-}
-
-.widget.is-mini .player__ctrlBtn {
-  padding: 3px;
 }
 
 .widget__title {
@@ -85,7 +71,11 @@ html, body {
   border-radius: 6px;
   display: flex;
   align-items: center;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, transform 0.4s;
+}
+
+.widget__iconBtn.is-spinning {
+  transform: rotate(360deg);
 }
 
 .widget__iconBtn:hover {
@@ -315,6 +305,13 @@ html, body {
 .player__controls {
   flex: 0 0 auto;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.player__controlsRow {
+  display: flex;
   align-items: center;
   gap: 2px;
 }
@@ -344,6 +341,32 @@ html, body {
 
 .player__ctrlBtn--play:hover {
   background: rgba(127, 181, 255, 0.28);
+}
+
+.volumeSlider {
+  -webkit-app-region: no-drag;
+  -webkit-appearance: none;
+  width: 74px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.volumeSlider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px;
+  height: 8px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  border: none;
+  background: #7fb5ff;
 }
 
 .toast {

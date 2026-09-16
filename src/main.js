@@ -6,7 +6,7 @@ const ytMusic = require('./ytMusicService');
 const ICON_PATH = path.join(__dirname, '..', 'assets', 'icon.png');
 const WIDTH = 280;
 const HEIGHT = 480;
-const MINI_HEIGHT = 94;
+const MINI_HEIGHT = 104;
 
 let mainWindow;
 let tray;
