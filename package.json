@@ -1,0 +1,16 @@
+{
+  "name": "youtube-music-widget",
+  "version": "1.0.0",
+  "description": "Lightweight desktop wrapper for YouTube Music with tray icon and always-on-top option",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^32.2.0"
+  },
+  "dependencies": {
+    "youtubei.js": "^18.0.0"
+  }
+}

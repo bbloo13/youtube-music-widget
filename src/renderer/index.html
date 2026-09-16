@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>YouTube Music</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="widget">
+    <div class="widget__header">
+      <span class="widget__title">YouTube Music</span>
+      <div class="widget__headerBtns">
+        <button class="widget__iconBtn" id="pinBtn" title="항상 위에 고정">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+        </button>
+        <button class="widget__iconBtn" id="minimizeBtn" title="미니 플레이어로 전환">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+        <button class="widget__iconBtn" id="closeBtn" title="트레이로 숨기기">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="widget__nav" id="nav" hidden>
+      <button class="widget__iconBtn" id="backBtn" title="뒤로">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <span class="widget__navLabel" id="navLabel"></span>
+    </div>
+
+    <div class="widget__list" id="list">
+      <div class="widget__empty">로그인 확인 중…</div>
+    </div>
+
+    <div class="player">
+      <img class="player__thumb" id="playerThumb" alt="" />
+      <div class="player__info">
+        <div class="player__title" id="playerTitle">재생 중인 트랙 없음</div>
+        <div class="player__artist" id="playerArtist"></div>
+        <div class="player__progress" id="progressBar"><div class="player__progressFill" id="progressFill"></div></div>
+      </div>
+      <div class="player__controls">
+        <button class="player__ctrlBtn" id="prevBtn" title="이전">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg>
+        </button>
+        <button class="player__ctrlBtn player__ctrlBtn--play" id="playBtn" title="재생/일시정지">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M8 5v14l11-7z"></path></svg>
+        </button>
+        <button class="player__ctrlBtn" id="nextBtn" title="다음">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-9.5 6L15 18V6z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <audio id="audio" preload="none"></audio>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
