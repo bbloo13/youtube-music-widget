@@ -1,7 +1,7 @@
 {
   "name": "youtube-music-widget",
   "version": "1.0.0",
-  "description": "Lightweight desktop wrapper for YouTube Music with tray icon and always-on-top option",
+  "description": "Compact YouTube Music desktop widget: library/playlist browsing and playback via youtubei.js, no embedded browser page",
   "private": true,
   "main": "src/main.js",
   "scripts": {

@@ -16,7 +16,7 @@ YouTube Music을 위한 가벼운 데스크톱 위젯. `music.youtube.com` 페�
 
 ## 설정 방법 (새 컴퓨터에서)
 
-별도로 준비해야 할 API 키나 credentials 파일이 없습니다. 딱 아래만 하면 됩니다.
+별도로 준비해야 할 API 키나 credentials 파일이 없습니다. [Node.js](https://nodejs.org) (npm 포함)만 설치되어 있으면 됩니다. 딱 아래만 하면 됩니다.
 
 ```bash
 git clone https://github.com/bbloo13/youtube-music-widget.git
@@ -27,9 +27,11 @@ npm start
 
 첫 실행 시 로그인이 안 되어 있으면 실제 구글 로그인 페이지를 띄우는 별도 창이 자동으로 열립니다. 그 창에서 평소처럼 구글 계정으로 로그인하면 (비밀번호/2단계 인증 포함, 이건 위젯이 대신할 수 없고 직접 해야 함) 로그인 창은 자동으로 닫히고 보관함이 로드됩니다. 이후로는 로그인 정보가 `userData` 폴더에 캐시되어 재시작해도 다시 로그인할 필요가 없습니다.
 
-### 시작 메뉴 아이콘 (선택)
+앱 자체(창/트레이/로그인/재생)는 Electron 기반이라 Windows·macOS·Linux 모두에서 동작합니다. 아래 시작 메뉴 바로가기만 Windows 전용입니다.
 
-`npm start`로 매번 터미널에서 켜는 게 불편하면 시작 메뉴 바로가기를 만들 수 있습니다 (PowerShell, Windows 전용):
+### 시작 메뉴 아이콘 (선택, Windows)
+
+`npm start`로 매번 터미널에서 켜는 게 불편하면 시작 메뉴 바로가기를 만들 수 있습니다 (PowerShell):
 
 ```powershell
 $WshShell = New-Object -ComObject WScript.Shell
