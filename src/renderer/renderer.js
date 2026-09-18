@@ -265,6 +265,7 @@ volumeSlider.addEventListener('input', () => {
   updateVolumeFill(volumeSlider.value);
 });
 
+audio.volume = Number(volumeSlider.value) / 100;
 updateVolumeFill(volumeSlider.value);
 
 backBtn.addEventListener('click', () => loadLibrary(false));

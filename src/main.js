@@ -12,6 +12,15 @@ let mainWindow;
 let tray;
 let isQuitting = false;
 
+// Launching a second instance (e.g. the Start Menu shortcut while the app is
+// already running) used to leave both copies fighting over the same profile
+// directory and neither one ever painting a window. Bail out of the second
+// launch instead, and just surface the window the first instance already has.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
 function getStateFilePath() {
   return path.join(app.getPath('userData'), 'window-state.json');
 }
@@ -209,12 +218,21 @@ function registerAutoLaunch() {
   }
 }
 
-app.whenReady().then(() => {
-  registerAutoLaunch();
-  registerIpcHandlers();
-  createWindow();
-  createTray();
+app.on('second-instance', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
 });
+
+if (gotSingleInstanceLock) {
+  app.whenReady().then(() => {
+    registerAutoLaunch();
+    registerIpcHandlers();
+    createWindow();
+    createTray();
+  });
+}
 
 app.on('window-all-closed', () => {
   // Tray keeps the app alive; do nothing here.
