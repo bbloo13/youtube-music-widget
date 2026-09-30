@@ -43,6 +43,24 @@ function saveState(partial) {
   }
 }
 
+function getFavoritesFilePath() {
+  return path.join(app.getPath('userData'), 'favorites.json');
+}
+
+function loadFavorites() {
+  try {
+    const data = JSON.parse(fs.readFileSync(getFavoritesFilePath(), 'utf-8'));
+    return { playlists: data.playlists || [], channels: data.channels || [] };
+  } catch (_) {
+    return { playlists: [], channels: [] };
+  }
+}
+
+function saveFavorites(favorites) {
+  fs.mkdirSync(app.getPath('userData'), { recursive: true });
+  fs.writeFileSync(getFavoritesFilePath(), JSON.stringify(favorites));
+}
+
 function createWindow() {
   const state = loadState();
 
@@ -185,6 +203,17 @@ function registerIpcHandlers() {
   ipcMain.handle('library:get', () => ytMusic.getLibrary());
   ipcMain.handle('playlist:get', (_event, playlistId) => ytMusic.getPlaylist(playlistId));
   ipcMain.handle('track:stream', (_event, videoId) => ytMusic.getStreamUrl(videoId));
+
+  ipcMain.handle('subscriptions:get', () => ytMusic.getSubscriptions());
+  ipcMain.handle('channel:videos', (_event, channelId) => ytMusic.getChannelVideos(channelId));
+  ipcMain.handle('channel:videos:more', () => ytMusic.getMoreChannelVideos());
+  ipcMain.handle('video:stream', (_event, videoId) => ytMusic.getVideoStreamUrl(videoId));
+
+  ipcMain.handle('favorites:get', () => loadFavorites());
+  ipcMain.handle('favorites:set', (_event, favorites) => {
+    saveFavorites(favorites);
+    return favorites;
+  });
 
   ipcMain.on('window:hide', () => mainWindow.hide());
 

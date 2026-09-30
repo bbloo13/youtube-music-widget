@@ -3,7 +3,11 @@ const listEl = document.getElementById('list');
 const navEl = document.getElementById('nav');
 const navLabelEl = document.getElementById('navLabel');
 const backBtn = document.getElementById('backBtn');
+const viewToggleEl = document.getElementById('viewToggle');
+const tabPlaylistsBtn = document.getElementById('tabPlaylistsBtn');
+const tabChannelsBtn = document.getElementById('tabChannelsBtn');
 const refreshBtn = document.getElementById('refreshBtn');
+const editBtn = document.getElementById('editBtn');
 const pinBtn = document.getElementById('pinBtn');
 const minimizeBtn = document.getElementById('minimizeBtn');
 const closeBtn = document.getElementById('closeBtn');
@@ -23,13 +27,22 @@ const volumeSlider = document.getElementById('volumeSlider');
 
 const PLAY_ICON = '<path d="M8 5v14l11-7z"></path>';
 const PAUSE_ICON = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"></path>';
+const CHECK_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
-let libraryItems = null;
+let playlistItems = null;
+let channelItems = null;
+let favorites = { playlists: [], channels: [] };
+let libraryTab = 'playlists'; // 'playlists' | 'channels'
+let isEditMode = false;
+
+let currentView = 'library'; // 'library' | 'playlist' | 'channel'
+let currentDetailItem = null;
 let currentQueue = [];
+let currentQueueKind = 'track'; // 'track' | 'video'
 let currentIndex = -1;
+let hasMoreVideos = false;
+let isLoadingMore = false;
 let isShuffleRepeat = false;
-let currentView = 'library';
-let currentPlaylistItem = null;
 
 function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -86,23 +99,32 @@ function renderRows(items, options) {
 
     row.appendChild(body);
 
-    if (options.duration) {
-      const duration = document.createElement('div');
-      duration.className = 'row__duration';
-      duration.textContent = options.duration(item);
-      row.appendChild(duration);
-    }
+    if (options.checkable) {
+      const checked = options.isChecked(item);
+      const checkbox = document.createElement('div');
+      checkbox.className = 'row__checkbox';
+      checkbox.classList.toggle('is-checked', checked);
+      checkbox.innerHTML = checked ? CHECK_ICON : '';
+      row.appendChild(checkbox);
+    } else {
+      if (options.duration) {
+        const duration = document.createElement('div');
+        duration.className = 'row__duration';
+        duration.textContent = options.duration(item);
+        row.appendChild(duration);
+      }
 
-    if (options.onPlayClick) {
-      const playRowBtn = document.createElement('button');
-      playRowBtn.className = 'row__playBtn';
-      playRowBtn.title = '섞어서 반복 재생';
-      playRowBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>';
-      playRowBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        options.onPlayClick(item);
-      });
-      row.appendChild(playRowBtn);
+      if (options.onPlayClick) {
+        const playRowBtn = document.createElement('button');
+        playRowBtn.className = 'row__playBtn';
+        playRowBtn.title = '섞어서 반복 재생';
+        playRowBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>';
+        playRowBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          options.onPlayClick(item);
+        });
+        row.appendChild(playRowBtn);
+      }
     }
 
     row.addEventListener('click', () => options.onClick(item));
@@ -110,50 +132,156 @@ function renderRows(items, options) {
   }
 }
 
+async function ensurePlaylists(forceRefresh) {
+  if (!forceRefresh && playlistItems) return playlistItems;
+  playlistItems = await window.api.getLibrary();
+  return playlistItems;
+}
+
+async function ensureChannels(forceRefresh) {
+  if (!forceRefresh && channelItems) return channelItems;
+  channelItems = await window.api.getSubscriptions();
+  return channelItems;
+}
+
 async function loadLibrary(forceRefresh) {
   navEl.hidden = true;
-
-  if (!forceRefresh && libraryItems) {
-    renderLibrary();
-    return;
-  }
-
+  viewToggleEl.hidden = false;
+  currentView = 'library';
+  hasMoreVideos = false;
   listEl.innerHTML = '<div class="widget__empty">불러오는 중…</div>';
 
   try {
-    libraryItems = await window.api.getLibrary();
-    renderLibrary();
+    if (libraryTab === 'playlists') {
+      await ensurePlaylists(forceRefresh);
+    } else {
+      await ensureChannels(forceRefresh);
+    }
+    renderLibraryTab();
   } catch (err) {
     console.error(err);
-    listEl.innerHTML = '<div class="widget__empty">보관함을 불러오지 못했어요.</div>';
+    listEl.innerHTML = '<div class="widget__empty">불러오지 못했어요.</div>';
   }
 }
 
-function renderLibrary() {
-  currentView = 'library';
-  renderRows(libraryItems, {
-    emptyText: '보관함이 비어 있어요.',
+function renderLibraryTab() {
+  const isPlaylists = libraryTab === 'playlists';
+  const allItems = (isPlaylists ? playlistItems : channelItems) || [];
+  const favIds = favorites[libraryTab];
+  const items = isEditMode || !favIds.length ? allItems : allItems.filter((item) => favIds.includes(item.id));
+
+  renderRows(items, {
+    emptyText: isPlaylists ? '재생목록이 없어요.' : '구독한 채널이 없어요.',
     subtitle: (item) => item.subtitle || '',
-    onClick: (item) => openPlaylist(item),
-    onPlayClick: (item) => playShuffled(item),
+    checkable: isEditMode,
+    isChecked: (item) => favIds.includes(item.id),
+    onToggle: (item) => toggleFavorite(item),
+    onClick: isEditMode
+      ? (item) => toggleFavorite(item)
+      : isPlaylists
+        ? (item) => openPlaylist(item)
+        : (item) => openChannel(item),
+    onPlayClick: !isEditMode && isPlaylists ? (item) => playShuffled(item) : undefined,
   });
 }
 
+async function toggleFavorite(item) {
+  const list = favorites[libraryTab];
+  const idx = list.indexOf(item.id);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+  } else {
+    list.push(item.id);
+  }
+  renderLibraryTab();
+  try {
+    await window.api.setFavorites(favorites);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function switchTab(tab) {
+  if (libraryTab === tab) return;
+  libraryTab = tab;
+  tabPlaylistsBtn.classList.toggle('is-active', tab === 'playlists');
+  tabChannelsBtn.classList.toggle('is-active', tab === 'channels');
+  loadLibrary(false);
+}
+
+tabPlaylistsBtn.addEventListener('click', () => switchTab('playlists'));
+tabChannelsBtn.addEventListener('click', () => switchTab('channels'));
+
+editBtn.addEventListener('click', () => {
+  isEditMode = !isEditMode;
+  editBtn.classList.toggle('is-active', isEditMode);
+  if (currentView === 'library') {
+    renderLibraryTab();
+  } else {
+    loadLibrary(false);
+  }
+});
+
 async function openPlaylist(item) {
   navEl.hidden = false;
+  viewToggleEl.hidden = true;
   navLabelEl.textContent = item.title;
   listEl.innerHTML = '<div class="widget__empty">불러오는 중…</div>';
 
   try {
     const playlist = await window.api.getPlaylist(item.id);
     currentView = 'playlist';
-    currentPlaylistItem = item;
+    currentDetailItem = item;
+    currentQueueKind = 'track';
     currentQueue = playlist.tracks;
     isShuffleRepeat = false;
-    renderTracks();
+    hasMoreVideos = false;
+    renderQueue();
   } catch (err) {
     console.error(err);
     listEl.innerHTML = '<div class="widget__empty">목록을 불러오지 못했어요.</div>';
+  }
+}
+
+// channelId -> { videos, hasMore }. Opening a channel we've already viewed this
+// session paints instantly from here while a fresh fetch runs behind it — the fetch
+// always happens (so new uploads still show up), it just no longer blocks the paint.
+const channelVideoCache = new Map();
+
+async function openChannel(item) {
+  navEl.hidden = false;
+  viewToggleEl.hidden = true;
+  navLabelEl.textContent = item.title;
+  currentView = 'channel';
+  currentDetailItem = item;
+  currentQueueKind = 'video';
+  isShuffleRepeat = false;
+
+  const cached = channelVideoCache.get(item.id);
+  if (cached) {
+    currentQueue = cached.videos;
+    hasMoreVideos = cached.hasMore;
+    renderQueue();
+  } else {
+    currentQueue = [];
+    hasMoreVideos = false;
+    listEl.innerHTML = '<div class="widget__empty">불러오는 중…</div>';
+  }
+
+  try {
+    const channel = await window.api.getChannelVideos(item.id);
+    channelVideoCache.set(item.id, { videos: channel.videos, hasMore: Boolean(channel.hasMore) });
+
+    if (currentDetailItem === item) {
+      currentQueue = channel.videos;
+      hasMoreVideos = Boolean(channel.hasMore);
+      renderQueue();
+    }
+  } catch (err) {
+    console.error(err);
+    if (!cached) {
+      listEl.innerHTML = '<div class="widget__empty">영상을 불러오지 못했어요.</div>';
+    }
   }
 }
 
@@ -165,6 +293,7 @@ async function playShuffled(item) {
       showToast('재생할 트랙이 없어요.', true);
       return;
     }
+    currentQueueKind = 'track';
     currentQueue = shuffle(playlist.tracks.slice());
     isShuffleRepeat = true;
     playTrack(0);
@@ -174,32 +303,61 @@ async function playShuffled(item) {
   }
 }
 
-function renderTracks() {
+function renderQueue() {
   renderRows(currentQueue, {
-    emptyText: '트랙이 없어요.',
-    subtitle: (item) => item.artist || '',
+    emptyText: currentQueueKind === 'video' ? '영상이 없어요.' : '트랙이 없어요.',
+    subtitle: (item) => item.artist || item.subtitle || '',
     duration: (item) => item.duration || '',
     isPlaying: (item) => currentQueue[currentIndex] && currentQueue[currentIndex].id === item.id,
     onClick: (item) => playTrack(currentQueue.indexOf(item)),
   });
 }
 
+async function loadMoreVideos() {
+  if (isLoadingMore || !hasMoreVideos || currentView !== 'channel') return;
+  isLoadingMore = true;
+
+  try {
+    const more = await window.api.getMoreChannelVideos();
+    hasMoreVideos = more.hasMore;
+    if (more.videos.length) {
+      currentQueue = currentQueue.concat(more.videos);
+      const scrollTop = listEl.scrollTop;
+      renderQueue();
+      listEl.scrollTop = scrollTop;
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    isLoadingMore = false;
+  }
+}
+
+listEl.addEventListener('scroll', () => {
+  if (currentView !== 'channel' || !hasMoreVideos || isLoadingMore) return;
+  const { scrollTop, scrollHeight, clientHeight } = listEl;
+  if (scrollHeight - (scrollTop + clientHeight) < 80) {
+    loadMoreVideos();
+  }
+});
+
 async function playTrack(index) {
-  const track = currentQueue[index];
-  if (!track) return;
+  const media = currentQueue[index];
+  if (!media) return;
 
   currentIndex = index;
-  if (currentView === 'playlist') {
-    renderTracks();
+  if (currentView === 'playlist' || currentView === 'channel') {
+    renderQueue();
   }
 
-  playerTitle.textContent = track.title;
-  playerArtist.textContent = track.artist || '';
-  playerThumb.src = track.thumbnail || '';
+  playerTitle.textContent = media.title;
+  playerArtist.textContent = media.artist || media.subtitle || '';
+  playerThumb.src = media.thumbnail || '';
   progressFill.style.width = '0%';
 
   try {
-    const stream = await window.api.getStreamUrl(track.id);
+    const getStream = currentQueueKind === 'video' ? window.api.getVideoStreamUrl : window.api.getStreamUrl;
+    const stream = await getStream(media.id);
     audio.src = stream.url;
     await audio.play();
     playIcon.innerHTML = PAUSE_ICON;
@@ -274,8 +432,10 @@ refreshBtn.addEventListener('click', () => {
   refreshBtn.classList.add('is-spinning');
   setTimeout(() => refreshBtn.classList.remove('is-spinning'), 400);
 
-  if (currentView === 'playlist' && currentPlaylistItem) {
-    openPlaylist(currentPlaylistItem);
+  if (currentView === 'playlist' && currentDetailItem) {
+    openPlaylist(currentDetailItem);
+  } else if (currentView === 'channel' && currentDetailItem) {
+    openChannel(currentDetailItem);
   } else {
     loadLibrary(true);
   }
@@ -305,6 +465,12 @@ async function init() {
 
   const isMini = await window.api.getMiniState();
   widgetEl.classList.toggle('is-mini', isMini);
+
+  try {
+    favorites = await window.api.getFavorites();
+  } catch (err) {
+    console.error(err);
+  }
 
   try {
     await window.api.startAuth();
