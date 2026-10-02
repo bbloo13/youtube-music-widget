@@ -1,6 +1,16 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Electron derives app.getPath('userData') from the app name, which it normally reads
+// from package.json — but only reliably when launched with the project folder as the
+// working directory. Windows' "run at login" entry launches it with the project path
+// as an *argument* instead (no matching cwd), which made Electron fall back to the
+// generic "Electron" name and silently start from a different, empty userData folder
+// each time — losing the saved login cookie, favorites, and window state. Setting the
+// name explicitly makes userData consistent no matter how the process was started.
+app.setName('youtube-music-widget');
+
 const ytMusic = require('./ytMusicService');
 
 const ICON_PATH = path.join(__dirname, '..', 'assets', 'icon.png');
