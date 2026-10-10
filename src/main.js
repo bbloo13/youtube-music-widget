@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -71,14 +71,32 @@ function saveFavorites(favorites) {
   fs.writeFileSync(getFavoritesFilePath(), JSON.stringify(favorites));
 }
 
+/**
+ * A saved position can point at a monitor that's no longer attached (e.g. an
+ * unplugged second display), which leaves the widget running but invisible.
+ * Keep the saved x/y only if a usable chunk of the window still overlaps a
+ * currently attached display; otherwise drop them so Electron places the
+ * window on the primary display.
+ */
+function positionIfOnScreen(state, height) {
+  if (typeof state.x !== 'number' || typeof state.y !== 'number') return {};
+  const MIN_VISIBLE = 120;
+  const onScreen = screen.getAllDisplays().some(({ workArea: a }) => {
+    const overlapW = Math.min(state.x + WIDTH, a.x + a.width) - Math.max(state.x, a.x);
+    const overlapH = Math.min(state.y + height, a.y + a.height) - Math.max(state.y, a.y);
+    return overlapW >= MIN_VISIBLE && overlapH >= MIN_VISIBLE;
+  });
+  return onScreen ? { x: state.x, y: state.y } : {};
+}
+
 function createWindow() {
   const state = loadState();
+  const height = state.isMini ? MINI_HEIGHT : HEIGHT;
 
   mainWindow = new BrowserWindow({
     width: WIDTH,
-    height: state.isMini ? MINI_HEIGHT : HEIGHT,
-    x: state.x,
-    y: state.y,
+    height,
+    ...positionIfOnScreen(state, height),
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
