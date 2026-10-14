@@ -81,11 +81,15 @@ function saveFavorites(favorites) {
  */
 function positionIfOnScreen(state, height) {
   if (typeof state.x !== 'number' || typeof state.y !== 'number') return {};
-  const MIN_VISIBLE = 120;
+  // "A usable chunk" is 120px, but never more than half the window: the mini player is
+  // only 104px tall, so a flat 120px requirement could never be met and its saved
+  // position was always thrown away (it reopened in the middle of the screen).
+  const needW = Math.min(120, WIDTH / 2);
+  const needH = Math.min(120, height / 2);
   const onScreen = screen.getAllDisplays().some(({ workArea: a }) => {
     const overlapW = Math.min(state.x + WIDTH, a.x + a.width) - Math.max(state.x, a.x);
     const overlapH = Math.min(state.y + height, a.y + a.height) - Math.max(state.y, a.y);
-    return overlapW >= MIN_VISIBLE && overlapH >= MIN_VISIBLE;
+    return overlapW >= needW && overlapH >= needH;
   });
   return onScreen ? { x: state.x, y: state.y } : {};
 }
