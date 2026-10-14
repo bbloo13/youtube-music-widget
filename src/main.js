@@ -105,7 +105,10 @@ function createWindow() {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    resizable: true,
+    // Not user-resizable: a resizable frameless window grows an invisible resize border
+    // just inside every edge, so a slightly-off drag resized the widget by accident.
+    // Programmatic resizes (mini <-> full) go through setSizeUnlocked() instead.
+    resizable: false,
     movable: true,
     alwaysOnTop: Boolean(state.alwaysOnTop),
     skipTaskbar: true,
@@ -232,6 +235,15 @@ function openLoginWindow() {
   return loginPromise;
 }
 
+// On Windows a `resizable: false` window silently ignores setSize() after its first
+// resize, so the flag is lifted only for the instant of the call (verified to grow and
+// shrink repeatedly while isResizable() stays false).
+function setSizeUnlocked(width, height) {
+  mainWindow.setResizable(true);
+  mainWindow.setSize(width, height);
+  mainWindow.setResizable(false);
+}
+
 // Resizing keeps the top-left corner fixed, so expanding a widget parked near the
 // bottom of the screen pushed its player bar behind the taskbar. Slide it back in.
 function keepOnScreen() {
@@ -277,7 +289,7 @@ function registerIpcHandlers() {
   ipcMain.handle('window:getPinState', () => Boolean(loadState().alwaysOnTop));
 
   ipcMain.handle('window:toggleMini', (_event, isMini) => {
-    mainWindow.setSize(WIDTH, isMini ? MINI_HEIGHT : HEIGHT);
+    setSizeUnlocked(WIDTH, isMini ? MINI_HEIGHT : HEIGHT);
     keepOnScreen();
     saveState({ isMini });
     return isMini;
