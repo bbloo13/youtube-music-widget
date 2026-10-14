@@ -8,6 +8,8 @@ const tabPlaylistsBtn = document.getElementById('tabPlaylistsBtn');
 const tabChannelsBtn = document.getElementById('tabChannelsBtn');
 const refreshBtn = document.getElementById('refreshBtn');
 const editBtn = document.getElementById('editBtn');
+const searchRowEl = document.getElementById('searchRow');
+const searchInput = document.getElementById('searchInput');
 const pinBtn = document.getElementById('pinBtn');
 const minimizeBtn = document.getElementById('minimizeBtn');
 const closeBtn = document.getElementById('closeBtn');
@@ -34,6 +36,8 @@ let channelItems = null;
 let favorites = { playlists: [], channels: [] };
 let libraryTab = 'playlists'; // 'playlists' | 'channels'
 let isEditMode = false;
+let searchQuery = '';
+let editPinned = { playlists: new Set(), channels: new Set() };
 
 let currentView = 'library'; // 'library' | 'playlist' | 'channel'
 let currentDetailItem = null;
@@ -164,14 +168,54 @@ async function loadLibrary(forceRefresh) {
   }
 }
 
+function foldForSearch(text) {
+  // Lowercase and drop Latin accents, but keep Hangul syllables composed.
+  return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').normalize('NFC').toLowerCase();
+}
+
+// Live "type-ahead" match. Every character except the last must match exactly; the last
+// one may still be mid-composition (a lone "ㄷ", or "도" about to become "돌"), so it
+// matches any character whose jamo begin with the same jamo. That way "ㅂ → 바 → 박 →
+// 박ㄷ → 박도" narrows steadily instead of the list going empty on half-typed syllables.
+function matchesSearch(title, query) {
+  const q = Array.from(foldForSearch(query).trim());
+  if (!q.length) return true;
+
+  const tail = q.pop().normalize('NFKD');
+  const head = q.join('');
+  const t = foldForSearch(title);
+
+  for (let i = 0; i + head.length < t.length; i++) {
+    if (!t.startsWith(head, i)) continue;
+    const next = String.fromCodePoint(t.codePointAt(i + head.length));
+    if (next.normalize('NFKD').startsWith(tail)) return true;
+  }
+  return false;
+}
+
 function renderLibraryTab() {
   const isPlaylists = libraryTab === 'playlists';
   const allItems = (isPlaylists ? playlistItems : channelItems) || [];
   const favIds = favorites[libraryTab];
-  const items = isEditMode || !favIds.length ? allItems : allItems.filter((item) => favIds.includes(item.id));
+  const isSearching = isEditMode && searchQuery.trim() !== '';
+
+  searchRowEl.hidden = !isEditMode;
+  searchInput.placeholder = isPlaylists ? '재생목록 검색' : '채널 검색';
+
+  let items = allItems;
+  if (isEditMode) {
+    if (isSearching) items = allItems.filter((item) => matchesSearch(item.title, searchQuery));
+    // Favorites first, but judged by what was favorited when edit mode was opened — ticking
+    // or unticking mid-session leaves rows where they are, so nothing slides out from under
+    // the cursor (which made accidental mis-ticks easy).
+    const pinned = editPinned[libraryTab];
+    items = [...items.filter((item) => pinned.has(item.id)), ...items.filter((item) => !pinned.has(item.id))];
+  } else if (favIds.length) {
+    items = allItems.filter((item) => favIds.includes(item.id));
+  }
 
   renderRows(items, {
-    emptyText: isPlaylists ? '재생목록이 없어요.' : '구독한 채널이 없어요.',
+    emptyText: isSearching ? '검색 결과가 없어요.' : isPlaylists ? '재생목록이 없어요.' : '구독한 채널이 없어요.',
     subtitle: (item) => item.subtitle || '',
     checkable: isEditMode,
     isChecked: (item) => favIds.includes(item.id),
@@ -201,9 +245,21 @@ async function toggleFavorite(item) {
   }
 }
 
+function clearSearch() {
+  searchQuery = '';
+  searchInput.value = '';
+}
+
+searchInput.addEventListener('input', () => {
+  searchQuery = searchInput.value;
+  renderLibraryTab();
+  listEl.scrollTop = 0;
+});
+
 function switchTab(tab) {
   if (libraryTab === tab) return;
   libraryTab = tab;
+  clearSearch();
   tabPlaylistsBtn.classList.toggle('is-active', tab === 'playlists');
   tabChannelsBtn.classList.toggle('is-active', tab === 'channels');
   loadLibrary(false);
@@ -215,6 +271,10 @@ tabChannelsBtn.addEventListener('click', () => switchTab('channels'));
 editBtn.addEventListener('click', () => {
   isEditMode = !isEditMode;
   editBtn.classList.toggle('is-active', isEditMode);
+  clearSearch();
+  if (isEditMode) {
+    editPinned = { playlists: new Set(favorites.playlists), channels: new Set(favorites.channels) };
+  }
   if (currentView === 'library') {
     renderLibraryTab();
   } else {
@@ -225,6 +285,7 @@ editBtn.addEventListener('click', () => {
 async function openPlaylist(item) {
   navEl.hidden = false;
   viewToggleEl.hidden = true;
+  searchRowEl.hidden = true;
   navLabelEl.textContent = item.title;
   listEl.innerHTML = '<div class="widget__empty">불러오는 중…</div>';
 
@@ -251,6 +312,7 @@ const channelVideoCache = new Map();
 async function openChannel(item) {
   navEl.hidden = false;
   viewToggleEl.hidden = true;
+  searchRowEl.hidden = true;
   navLabelEl.textContent = item.title;
   currentView = 'channel';
   currentDetailItem = item;

@@ -12,6 +12,7 @@ const fs = require('fs');
 app.setName('youtube-music-widget');
 
 const ytMusic = require('./ytMusicService');
+const diagnostics = require('./diagnostics');
 
 const ICON_PATH = path.join(__dirname, '..', 'assets', 'icon.png');
 const WIDTH = 280;
@@ -113,9 +114,17 @@ function createWindow() {
     },
   });
 
+  diagnostics.attachWindow(mainWindow);
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  mainWindow.on('move', () => saveState(mainWindow.getBounds()));
+  // 'move' fires continuously while dragging; each save is a synchronous disk
+  // read+write on the main thread (the one that also services the window itself),
+  // so only persist once the drag settles.
+  let moveSaveTimer = null;
+  mainWindow.on('move', () => {
+    clearTimeout(moveSaveTimer);
+    moveSaveTimer = setTimeout(() => saveState(mainWindow.getBounds()), 400);
+  });
 
   // Close hides to tray instead of quitting, so playback keeps running in the background.
   mainWindow.on('close', (event) => {
@@ -219,6 +228,16 @@ function openLoginWindow() {
   return loginPromise;
 }
 
+// Resizing keeps the top-left corner fixed, so expanding a widget parked near the
+// bottom of the screen pushed its player bar behind the taskbar. Slide it back in.
+function keepOnScreen() {
+  const b = mainWindow.getBounds();
+  const { workArea } = screen.getDisplayMatching(b);
+  const x = Math.max(workArea.x, Math.min(b.x, workArea.x + workArea.width - b.width));
+  const y = Math.max(workArea.y, Math.min(b.y, workArea.y + workArea.height - b.height));
+  if (x !== b.x || y !== b.y) mainWindow.setPosition(x, y);
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('auth:start', async () => {
     if (!ytMusic.hasCookie()) {
@@ -255,6 +274,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle('window:toggleMini', (_event, isMini) => {
     mainWindow.setSize(WIDTH, isMini ? MINI_HEIGHT : HEIGHT);
+    keepOnScreen();
     saveState({ isMini });
     return isMini;
   });
@@ -284,6 +304,7 @@ app.on('second-instance', () => {
 
 if (gotSingleInstanceLock) {
   app.whenReady().then(() => {
+    diagnostics.init();
     registerAutoLaunch();
     registerIpcHandlers();
     createWindow();
