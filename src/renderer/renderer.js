@@ -422,7 +422,6 @@ async function playTrack(index) {
     const stream = await getStream(media.id);
     audio.src = stream.url;
     await audio.play();
-    playIcon.innerHTML = PAUSE_ICON;
   } catch (err) {
     console.error(err);
     showToast('재생에 실패했어요.', true);
@@ -451,12 +450,19 @@ function advance(delta) {
 playBtn.addEventListener('click', () => {
   if (!audio.src) return;
   if (audio.paused) {
-    audio.play();
-    playIcon.innerHTML = PAUSE_ICON;
+    audio.play().catch(console.error);
   } else {
     audio.pause();
-    playIcon.innerHTML = PLAY_ICON;
   }
+});
+
+// The icon follows the audio element itself rather than our own clicks, so it also
+// updates when the system pauses playback (e.g. wireless earbuds removed / media keys).
+audio.addEventListener('play', () => {
+  playIcon.innerHTML = PAUSE_ICON;
+});
+audio.addEventListener('pause', () => {
+  playIcon.innerHTML = PLAY_ICON;
 });
 
 prevBtn.addEventListener('click', () => advance(-1));
