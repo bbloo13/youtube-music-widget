@@ -133,6 +133,17 @@ function createWindow() {
     moveSaveTimer = setTimeout(() => saveState(mainWindow.getBounds()), 400);
   });
 
+  // Windows shutdown, restart and log-off end with a session-end signal to
+  // every window (app 'before-quit' is documented as not firing for these on
+  // Windows). The hide-to-tray handler below answers close requests with "no",
+  // which for a shutdown meant refusing to go, being killed by Windows as hung,
+  // and a crash dialog on the way down. Treat the signal as a real quit.
+  mainWindow.on('session-end', () => {
+    isQuitting = true;
+    diagnostics.log('session-end', 'Windows is shutting down / logging off');
+    app.quit(); // exit cleanly instead of lingering as a window-less process until Windows kills it
+  });
+
   // Close hides to tray instead of quitting, so playback keeps running in the background.
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
