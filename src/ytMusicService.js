@@ -106,11 +106,125 @@ async function getLibrary() {
   return items;
 }
 
+// A playlist longer than one page (~100 items) continues on further pages; reading only
+// the first one silently cut long lists short.
+const MAX_PLAYLIST_PAGES = 30;
+
+async function readMusicPlaylist(client, playlistId) {
+  let page = await client.music.getPlaylist(playlistId);
+  const title = page.header ? textOf(page.header.title) : '';
+  let items = page.contents || [];
+  for (let pages = 1; page.has_continuation && pages < MAX_PLAYLIST_PAGES; pages++) {
+    page = await page.getContinuation();
+    items = items.concat(page.contents || []);
+  }
+  return { title, items };
+}
+
+/**
+ * The YouTube Music view of a playlist silently drops plain YouTube videos that have no
+ * catalog (music) equivalent — a video saved to the list shows up on youtube.com but never
+ * in YT Music, and so never here. The regular YouTube view of the same list has them all,
+ * so it's read as well and used to fill the gaps. Best effort: any failure just means the
+ * list is shown the way YT Music reports it.
+ */
+async function readWebPlaylist(client, playlistId) {
+  try {
+    // Library ids carry a browse prefix ("VLPL…"); the regular playlist id is without it.
+    let page = await client.getPlaylist(playlistId.replace(/^VL/, ''));
+    let items = page.items || [];
+    for (let pages = 1; page.has_continuation && pages < MAX_PLAYLIST_PAGES; pages++) {
+      page = await page.getContinuation();
+      items = items.concat(page.items || []);
+    }
+    return items.filter((item) => item && item.id && item.set_video_id && item.title);
+  } catch (err) {
+    console.error('Web playlist read failed, using YT Music view only:', err.message);
+    return [];
+  }
+}
+
+/**
+ * YT Music swaps a saved video for its official audio track (different video id, often a
+ * different title), so the two views can't be paired by id or title. Each *entry* in a
+ * playlist does carry one id that both views share (setVideoId), but youtubei.js doesn't
+ * expose it on the parsed YT Music items — so it's read from the raw responses, pairing
+ * each video id with its entry id. Returns a Map(videoId -> [setVideoId, …]).
+ */
+async function readMusicEntryIds(client, playlistId) {
+  const entryIds = new Map();
+  try {
+    let response = await client.actions.execute('/browse', { browseId: playlistId, client: 'YTMUSIC' });
+    for (let pages = 0; response && pages < MAX_PLAYLIST_PAGES; pages++) {
+      let nextToken = null;
+      const walk = (node) => {
+        if (!node || typeof node !== 'object') return;
+        const data = node.musicResponsiveListItemRenderer && node.musicResponsiveListItemRenderer.playlistItemData;
+        if (data && data.videoId && data.playlistSetVideoId) {
+          if (!entryIds.has(data.videoId)) entryIds.set(data.videoId, []);
+          entryIds.get(data.videoId).push(data.playlistSetVideoId);
+        }
+        const continuation = node.continuationItemRenderer;
+        if (continuation && !nextToken) {
+          const command = continuation.continuationEndpoint && continuation.continuationEndpoint.continuationCommand;
+          if (command && command.token) nextToken = command.token;
+        }
+        for (const key of Object.keys(node)) walk(node[key]);
+      };
+      walk(response.data);
+      if (!nextToken) break;
+      response = await client.actions.execute('/browse', { continuation: nextToken, client: 'YTMUSIC' });
+    }
+  } catch (err) {
+    console.error('Could not read playlist entry ids:', err.message);
+    return new Map();
+  }
+  return entryIds;
+}
+
+/**
+ * Keeps the YT Music list as the base (its order is what the user is used to) and slips in
+ * the entries only the regular YouTube view has, right after whatever precedes them there.
+ * An entry counts as "already there" when YT Music has one with the same entry id.
+ */
+function mergePlaylistTracks(musicTracks, entryIds, webItems) {
+  if (!webItems.length || !entryIds.size) return musicTracks;
+
+  const trackByEntry = new Map();
+  const queues = new Map([...entryIds].map(([videoId, ids]) => [videoId, ids.slice()]));
+  for (const track of musicTracks) {
+    const queue = queues.get(track.id);
+    if (queue && queue.length) trackByEntry.set(queue.shift(), track);
+  }
+
+  const merged = musicTracks.slice();
+  let insertAt = 0; // just after the latest entry (YT Music's or an inserted one) seen so far
+  for (const item of webItems) {
+    const known = trackByEntry.get(item.set_video_id);
+    if (known) {
+      insertAt = merged.indexOf(known) + 1;
+      continue;
+    }
+    merged.splice(insertAt++, 0, {
+      id: item.id,
+      title: textOf(item.title),
+      artist: item.author ? textOf(item.author.name) : '',
+      duration: item.duration ? textOf(item.duration.text) : '',
+      thumbnail: firstThumbnailUrl(item.thumbnails),
+    });
+  }
+  return merged;
+}
+
 async function getPlaylist(playlistId) {
   const client = await getInnertube();
-  const playlist = await client.music.getPlaylist(playlistId);
+  const [music, entryIds, webItems] = await Promise.all([
+    readMusicPlaylist(client, playlistId),
+    readMusicEntryIds(client, playlistId),
+    readWebPlaylist(client, playlistId),
+  ]);
 
-  const tracks = (playlist.contents || [])
+  const musicTracks = music.items
     .filter((item) => item && item.id && item.title)
     .map((item) => ({
       id: item.id,
@@ -121,8 +235,8 @@ async function getPlaylist(playlistId) {
     }));
 
   return {
-    title: playlist.header ? textOf(playlist.header.title) : '',
-    tracks,
+    title: music.title,
+    tracks: mergePlaylistTracks(musicTracks, entryIds, webItems),
   };
 }
 
