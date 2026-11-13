@@ -1,0 +1,56 @@
+# youtube-music-widget
+
+YouTube Music을 위한 가벼운 데스크톱 위젯. `music.youtube.com` 페이지 자체는 로그인할 때만 잠깐 띄우고, 평소에는 `youtubei.js`로 보관함 데이터와 오디오 스트림만 가져와서 작고 컴팩트한 커스텀 UI로 보여줍니다.
+
+## 기능
+
+- **재생목록 / 채널 탭**: 재생목록 탭은 순수 재생목록만(아티스트·프로필·자동 재생목록 제외), 채널 탭은 구독한 채널 전체. 채널은 열면 영상 목록(조회수·길이 포함)이 무한 스크롤로 이어지고, 클릭하면 소리만 재생
+- **즐겨찾기 편집** (✎): 편집 모드에서 전체 목록에 체크해서 즐겨찾기를 고르면, 평소 화면에는 고른 것만 표시(아직 아무것도 안 골랐으면 전체 표시). 편집 모드를 열 때 기존 즐겨찾기가 맨 위로 모이고, 편집 중 체크/해제해도 행은 제자리에 있음. 편집 모드에는 즉시 걸러지는 **검색창**(한글 입력 중에도 동작)이 뜸
+- **섞어서 반복 재생**: 재생목록 항목에 마우스를 올리면 나오는 재생 버튼 — 이동 없이 그 자리에서 셔플+반복 재생 시작
+- **재생 컨트롤**: 이전/재생·일시정지/다음, 클릭해서 이동 가능한 진행바, 짧은 볼륨 슬라이더 (기본 30%)
+- **미니 모드**: 헤더의 `─` 버튼으로 목록을 접고 헤더+플레이어만 남는 작은 창으로 전환 (다시 누르면 복원, 화면 아래쪽이면 펼칠 때 화면 안으로 자동 보정)
+- **항상 위에 고정** (📌), **새로고침** (🔄, 현재 목록을 다시 불러옴)
+- **트레이 백그라운드 실행**: 닫기(✕) 버튼은 트레이로 숨김, 트레이 아이콘 클릭으로 다시 표시. 트레이 메뉴에서 완전 종료 가능
+- **Windows 로그인 시 자동 실행** 등록
+- 창 위치, 미니/고정 상태 등은 재시작해도 유지
+
+## 설정 방법 (새 컴퓨터에서)
+
+별도로 준비해야 할 API 키나 credentials 파일이 없습니다. [Node.js](https://nodejs.org) (npm 포함)만 설치되어 있으면 됩니다. 딱 아래만 하면 됩니다.
+
+```bash
+git clone https://github.com/bbloo13/youtube-music-widget.git
+cd youtube-music-widget
+npm install
+npm start
+```
+
+첫 실행 시 로그인이 안 되어 있으면 실제 구글 로그인 페이지를 띄우는 별도 창이 자동으로 열립니다. 그 창에서 평소처럼 구글 계정으로 로그인하면 (비밀번호/2단계 인증 포함, 이건 위젯이 대신할 수 없고 직접 해야 함) 로그인 창은 자동으로 닫히고 보관함이 로드됩니다. 이후로는 로그인 정보가 `userData` 폴더에 캐시되어 재시작해도 다시 로그인할 필요가 없습니다.
+
+앱 자체(창/트레이/로그인/재생)는 Electron 기반이라 Windows·macOS·Linux 모두에서 동작합니다. 아래 시작 메뉴 바로가기만 Windows 전용입니다.
+
+### 시작 메뉴 아이콘 (선택, Windows)
+
+`npm start`로 매번 터미널에서 켜는 게 불편하면 시작 메뉴 바로가기를 만들 수 있습니다 (PowerShell):
+
+```powershell
+$WshShell = New-Object -ComObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\YouTube Music.lnk")
+$Shortcut.TargetPath = "<repo-절대경로>\node_modules\electron\dist\electron.exe"
+$Shortcut.Arguments = "."
+$Shortcut.WorkingDirectory = "<repo-절대경로>"
+$Shortcut.IconLocation = "<repo-절대경로>\assets\icon.ico"
+$Shortcut.Save()
+```
+
+## 구조
+
+- `src/main.js` — 창/트레이/미니 모드/자동실행/IPC 핸들러
+- `src/ytMusicService.js` — `youtubei.js` 래퍼 (보관함·구독 채널·재생목록·채널 영상 조회, 스트림 URL 추출)
+- `src/diagnostics.js` — 문제 추적용 기록(`userData/diagnostics.log`): 시작, 창/GPU/렌더러 이상, 화면 잠금·절전, 5분 주기 상태. 256KB 넘으면 알아서 줄어듦
+- `src/preload.js` — 렌더러에 노출하는 IPC API
+- `src/renderer/` — UI (HTML/CSS/JS, 프레임 없는 다크 위젯)
+
+## 주의
+
+- 로그인/재생은 유튜브 뮤직 내부(비공개) API를 그대로 쓰는 `youtubei.js` 기반이라, 유튜브 쪽 내부 구조가 바뀌면 가끔 손봐야 할 수 있습니다.
